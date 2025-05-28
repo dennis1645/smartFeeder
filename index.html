@@ -8,9 +8,6 @@
       text-align: center;
       padding: 20px;
     }
-    input[type=range] {
-      width: 300px;
-    }
     button {
       margin: 10px;
       padding: 10px 20px;
@@ -27,38 +24,42 @@
     .disconnected {
       color: red;
     }
+    #foodStatus {
+      font-weight: bold;
+      margin-top: 10px;
+      font-size: 18px;
+    }
+    .safe {
+      color: green;
+    }
+    .low {
+      color: red;
+    }
   </style>
 </head>
 <body>
-  <h2>Kendalikan Sudut Servo</h2>
+  <h2>Kendalikan Servo untuk Memberi Makan</h2>
 
   <!-- Status Koneksi -->
   <p id="connectionStatus" class="disconnected">Status Koneksi: Terputus</p>
 
-  <!-- Slider -->
-  <input type="range" id="slider" min="0" max="180" value="90">
-  <p>Sudut: <span id="angle">90</span>°</p>
+  <!-- Tombol Memberi Makan -->
+  <button onclick="sendFeedCommand()">Memberi Makan</button>
 
-  <!-- Tombol -->
-  <button onclick="sendCommand(180)">ON (180°)</button>
-  <button onclick="sendCommand(0)">OFF (0°)</button>
-
-  <!-- Timer -->
-  <h3>Set Timer</h3>
-  <input type="time" id="timerInput">
-  <button onclick="setTimer()">Set Timer</button>
-  <p id="timerStatus">Belum ada timer</p>
-
-  <h3>Sensor Jarak</h3>
-  <p>Jarak: <span id="distance">0</span>%</p>
+  <!-- Status Makanan -->
+  <p>Jumlah Makanan Tersisa: <span id="distance">0</span>%</p>
+  <p id="foodStatus" class="safe">Makanan aman</p>
 
   <!-- MQTT.js -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
     const client = mqtt.connect('wss://test.mosquitto.org:8081');
-    const topic = 'servo/control';
+    const controlTopic = 'servo/control';
+    const sensorTopic = 'sensor/persen';
 
     const connectionStatus = document.getElementById('connectionStatus');
+    const distanceText = document.getElementById('distance');
+    const foodStatus = document.getElementById('foodStatus');
 
     function updateConnectionStatus(connected) {
       if(connected) {
@@ -75,7 +76,7 @@
     client.on('connect', () => {
       console.log('Connected to MQTT broker');
       updateConnectionStatus(true);
-      client.subscribe('sensor/persen');
+      client.subscribe(sensorTopic);
     });
 
     client.on('reconnect', () => {
@@ -93,46 +94,26 @@
       updateConnectionStatus(false);
     });
 
-    // Slider logic
-    const slider = document.getElementById('slider');
-    const angleText = document.getElementById('angle');
-
-    slider.addEventListener('input', () => {
-      const angle = slider.value;
-      angleText.textContent = angle;
-      client.publish(topic, angle.toString());
-    });
-
-    // Tombol ON/OFF
-    function sendCommand(angle) {
-      slider.value = angle;
-      angleText.textContent = angle;
-      client.publish(topic, angle.toString());
+    // Fungsi tombol memberi makan
+    function sendFeedCommand() {
+      client.publish(controlTopic, 'FEED');
     }
 
-    // Timer logic
-    function setTimer() {
-      const timeValue = document.getElementById('timerInput').value;
-      if (!timeValue) return alert("Pilih jam dulu!");
-
-      document.getElementById('timerStatus').textContent = `Timer diset ke ${timeValue}`;
-
-      const [hour, minute] = timeValue.split(':').map(Number);
-
-      // Gunakan interval sekali pakai
-      const timerInterval = setInterval(() => {
-        const now = new Date();
-        if (now.getHours() === hour && now.getMinutes() === minute && now.getSeconds() === 0) {
-          sendCommand(180); // ON 180°
-          clearInterval(timerInterval); // berhenti setelah timer jalan
-        }
-      }, 1000);
-    }
-
-    // Update jarak sensor realtime
+    // Terima data sensor jarak dalam persen
     client.on('message', (topic, message) => {
-      if (topic === 'sensor/persen') {
-        document.getElementById('distance').textContent = message.toString();
+      if (topic === sensorTopic) {
+        const persen = parseInt(message.toString());
+        distanceText.textContent = persen;
+
+        if (persen < 25) {
+          foodStatus.textContent = 'Makanan mau habis';
+          foodStatus.classList.remove('safe');
+          foodStatus.classList.add('low');
+        } else {
+          foodStatus.textContent = 'Makanan aman';
+          foodStatus.classList.remove('low');
+          foodStatus.classList.add('safe');
+        }
       }
     });
   </script>
