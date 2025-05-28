@@ -15,6 +15,7 @@
       margin: 10px;
       padding: 10px 20px;
       font-size: 16px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -36,8 +37,7 @@
   <p id="timerStatus">Belum ada timer</p>
 
   <h3>Sensor Jarak</h3>
-<p>Jarak: <span id="distance">0</span>%</p>
-
+  <p>Jarak: <span id="distance">0</span>%</p>
 
   <!-- MQTT.js -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -47,6 +47,7 @@
 
     client.on('connect', () => {
       console.log('Connected to MQTT broker');
+      client.subscribe('sensor/persen');
     });
 
     // Slider logic
@@ -56,7 +57,7 @@
     slider.addEventListener('input', () => {
       const angle = slider.value;
       angleText.textContent = angle;
-      client.publish(topic, angle);
+      client.publish(topic, angle.toString());
     });
 
     // Tombol ON/OFF
@@ -75,22 +76,22 @@
 
       const [hour, minute] = timeValue.split(':').map(Number);
 
-      setInterval(() => {
+      // Gunakan interval sekali pakai
+      const timerInterval = setInterval(() => {
         const now = new Date();
         if (now.getHours() === hour && now.getMinutes() === minute && now.getSeconds() === 0) {
-          sendCommand(180); // Atur sesuai aksi, misalnya ON (180°)
+          sendCommand(180); // ON 180°
+          clearInterval(timerInterval); // berhenti setelah timer jalan
         }
       }, 1000);
     }
 
-    client.subscribe('sensor/persen');
-
-client.on('message', (topic, message) => {
-  if (topic === 'sensor/persen') {
-    document.getElementById('distance').textContent = message.toString();
-  }
-});
-
+    // Update jarak sensor realtime
+    client.on('message', (topic, message) => {
+      if (topic === 'sensor/persen') {
+        document.getElementById('distance').textContent = message.toString();
+      }
+    });
   </script>
 </body>
 </html>
