@@ -17,10 +17,23 @@
       font-size: 16px;
       cursor: pointer;
     }
+    #connectionStatus {
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .connected {
+      color: green;
+    }
+    .disconnected {
+      color: red;
+    }
   </style>
 </head>
 <body>
   <h2>Kendalikan Sudut Servo</h2>
+
+  <!-- Status Koneksi -->
+  <p id="connectionStatus" class="disconnected">Status Koneksi: Terputus</p>
 
   <!-- Slider -->
   <input type="range" id="slider" min="0" max="180" value="90">
@@ -45,9 +58,39 @@
     const client = mqtt.connect('wss://test.mosquitto.org:8081');
     const topic = 'servo/control';
 
+    const connectionStatus = document.getElementById('connectionStatus');
+
+    function updateConnectionStatus(connected) {
+      if(connected) {
+        connectionStatus.textContent = 'Status Koneksi: Tersambung';
+        connectionStatus.classList.remove('disconnected');
+        connectionStatus.classList.add('connected');
+      } else {
+        connectionStatus.textContent = 'Status Koneksi: Terputus';
+        connectionStatus.classList.remove('connected');
+        connectionStatus.classList.add('disconnected');
+      }
+    }
+
     client.on('connect', () => {
       console.log('Connected to MQTT broker');
+      updateConnectionStatus(true);
       client.subscribe('sensor/persen');
+    });
+
+    client.on('reconnect', () => {
+      console.log('Reconnecting...');
+      updateConnectionStatus(false);
+    });
+
+    client.on('offline', () => {
+      console.log('Offline');
+      updateConnectionStatus(false);
+    });
+
+    client.on('error', (err) => {
+      console.error('Connection error:', err);
+      updateConnectionStatus(false);
     });
 
     // Slider logic
