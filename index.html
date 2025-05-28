@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kendali Servo NodeMCU</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    input[type=range] {
+      width: 300px;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Kendalikan Sudut Servo</h2>
+
+  <!-- Slider -->
+  <input type="range" id="slider" min="0" max="180" value="90">
+  <p>Sudut: <span id="angle">90</span>°</p>
+
+  <!-- Tombol -->
+  <button onclick="sendCommand(180)">ON (180°)</button>
+  <button onclick="sendCommand(0)">OFF (0°)</button>
+
+  <!-- Timer -->
+  <h3>Set Timer</h3>
+  <input type="time" id="timerInput">
+  <button onclick="setTimer()">Set Timer</button>
+  <p id="timerStatus">Belum ada timer</p>
+
+  <h3>Sensor Jarak</h3>
+<p>Jarak: <span id="distance">0</span>%</p>
+
+
+  <!-- MQTT.js -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    const client = mqtt.connect('wss://test.mosquitto.org:8081');
+    const topic = 'servo/control';
+
+    client.on('connect', () => {
+      console.log('Connected to MQTT broker');
+    });
+
+    // Slider logic
+    const slider = document.getElementById('slider');
+    const angleText = document.getElementById('angle');
+
+    slider.addEventListener('input', () => {
+      const angle = slider.value;
+      angleText.textContent = angle;
+      client.publish(topic, angle);
+    });
+
+    // Tombol ON/OFF
+    function sendCommand(angle) {
+      slider.value = angle;
+      angleText.textContent = angle;
+      client.publish(topic, angle.toString());
+    }
+
+    // Timer logic
+    function setTimer() {
+      const timeValue = document.getElementById('timerInput').value;
+      if (!timeValue) return alert("Pilih jam dulu!");
+
+      document.getElementById('timerStatus').textContent = `Timer diset ke ${timeValue}`;
+
+      const [hour, minute] = timeValue.split(':').map(Number);
+
+      setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === hour && now.getMinutes() === minute && now.getSeconds() === 0) {
+          sendCommand(180); // Atur sesuai aksi, misalnya ON (180°)
+        }
+      }, 1000);
+    }
+
+    client.subscribe('sensor/persen');
+
+client.on('message', (topic, message) => {
+  if (topic === 'sensor/persen') {
+    document.getElementById('distance').textContent = message.toString();
+  }
+});
+
+  </script>
+</body>
+</html>
