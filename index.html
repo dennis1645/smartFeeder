@@ -44,9 +44,16 @@
   <p id="connectionStatus" class="disconnected">Status Koneksi: Terputus</p>
 
   <!-- Tombol Memberi Makan -->
-  <button onclick="sendFeedCommand()">Memberi Makan</button>
+  <button onclick="sendFeedCommand()">Memberi Makan Sekarang</button>
+
+  <!-- Set Timer -->
+  <h3>Set Waktu Pemberian Makan Otomatis</h3>
+  <input type="time" id="feedTime">
+  <button onclick="setAutoFeed()">Set Waktu</button>
+  <p id="timerStatus">Belum ada timer</p>
 
   <!-- Status Makanan -->
+  <h3>Status Makanan</h3>
   <p>Jumlah Makanan Tersisa: <span id="distance">0</span>%</p>
   <p id="foodStatus" class="safe">Makanan aman</p>
 
@@ -60,6 +67,8 @@
     const connectionStatus = document.getElementById('connectionStatus');
     const distanceText = document.getElementById('distance');
     const foodStatus = document.getElementById('foodStatus');
+    const timerStatus = document.getElementById('timerStatus');
+    let autoFeedTime = null;
 
     function updateConnectionStatus(connected) {
       if(connected) {
@@ -80,12 +89,10 @@
     });
 
     client.on('reconnect', () => {
-      console.log('Reconnecting...');
       updateConnectionStatus(false);
     });
 
     client.on('offline', () => {
-      console.log('Offline');
       updateConnectionStatus(false);
     });
 
@@ -99,7 +106,29 @@
       client.publish(controlTopic, 'FEED');
     }
 
-    // Terima data sensor jarak dalam persen
+    // Atur waktu auto-feed
+    function setAutoFeed() {
+      const timeInput = document.getElementById('feedTime').value;
+      if (!timeInput) {
+        alert("Silakan pilih jam terlebih dahulu!");
+        return;
+      }
+
+      autoFeedTime = timeInput;
+      timerStatus.textContent = `Pemberian makan dijadwalkan pukul ${timeInput}`;
+    }
+
+    // Interval pengecekan waktu setiap detik
+    setInterval(() => {
+      if (!autoFeedTime) return;
+      const [targetHour, targetMinute] = autoFeedTime.split(':').map(Number);
+      const now = new Date();
+      if (now.getHours() === targetHour && now.getMinutes() === targetMinute && now.getSeconds() === 0) {
+        sendFeedCommand();
+      }
+    }, 1000);
+
+    // Update status makanan dari sensor
     client.on('message', (topic, message) => {
       if (topic === sensorTopic) {
         const persen = parseInt(message.toString());
